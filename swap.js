@@ -18,7 +18,7 @@ async function main() {
 
     let coinbase = await web3.eth.getCoinbase()
 
-    let accounts = await db.Account.find({balanceNumber: {$gt: 0}}).sort({balanceNumber: 1})
+    let accounts = await db.Account.find({balanceNumber: {$gt: 0}, accountType: 'normal'}).sort({balanceNumber: 1})
     for (let i = 0; i < accounts.length; i++) {
         let account = accounts[i]
 
