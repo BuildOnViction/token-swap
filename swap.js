@@ -20,16 +20,15 @@ async function main() {
 
     let accounts = await db.Account.find({balanceNumber: {$gt: 0}, accountType: 'normal'}).sort({balanceNumber: 1})
     accounts.forEach(async function (account) {
-        // console.log('process acc', account.hash)
-        let balanceOnChain = new BigNumber(0.001 * 10 ** 18)
-        // let balanceOnChain = await tomoContract.methods.balanceOf(account.hash).call()
-        // balanceOnChain = new BigNumber(balanceOnChain)
-        // if (balanceOnChain.toString() !== account.balance) {
-        //     console.log('balance is not equal, update', balanceOnChain.toString(), account.balance)
-        //     account.balance = balanceOnChain.toString()
-        //     account.balanceNumber = balanceOnChain.dividedBy(10**18).toNumber()
-        //     account.save()
-        // }
+        // let balanceOnChain = new BigNumber(0.001 * 10 ** 18)
+        let balanceOnChain = await tomoContract.methods.balanceOf(account.hash).call()
+        balanceOnChain = new BigNumber(balanceOnChain)
+        if (balanceOnChain.toString() !== account.balance) {
+            console.log('balance is not equal, update', balanceOnChain.toString(), account.balance)
+            account.balance = balanceOnChain.toString()
+            account.balanceNumber = balanceOnChain.dividedBy(10**18).toNumber()
+            account.save()
+        }
 
         let tx = await db.TomoTransaction.findOne({toAccount: account.hash})
         if (!tx){
