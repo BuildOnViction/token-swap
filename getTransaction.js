@@ -20,15 +20,14 @@ async function run(start, end) {
     if (end > endBlock) {
         end = endBlock
     }
-    await TomoCoin.getPastEvents('Transfer', { fromBlock: start, toBlock: end }, function (error, events) {
+    await TomoCoin.getPastEvents('Transfer', { fromBlock: start, toBlock: end }, async function (error, events) {
         if (error) {
             console.error(error)
         }
         if (!error){
             let data = []
             console.log('There are %s events from block %s to %s', events.length, start, end)
-            for (let i=0; i < events.length; i++) {
-                let event = events[i]
+            let map = events.map(async function (event) {
                 if (event.event === 'Transfer') {
                     let blockNumber = event.blockNumber
                     let transactionHash = event.transactionHash
@@ -45,10 +44,12 @@ async function run(start, end) {
                         amountNumber: tokenAmount.dividedBy(10**18).toNumber()
                     })
                 }
-            }
+            })
+            await Promise.all(map)
             if (data.length > 0) {
-                db.Transaction.insertMany(data)
+                await db.Transaction.insertMany(data)
             }
+            return true
         }
     })
 }
