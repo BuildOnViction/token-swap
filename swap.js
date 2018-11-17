@@ -12,7 +12,6 @@ const provider = new PrivateKeyProvider(config.get('privateKey'), config.get('to
 
 web3.eth.setProvider(provider)
 async function main() {
-
     const ethWeb3 = await new Web3(new Web3.providers.HttpProvider(config.get('ethProvider.http')))
     const tomoContract = await new ethWeb3.eth.Contract(TomoABI, config.get('tomoAddress'))
 
@@ -32,7 +31,15 @@ async function main() {
 
         let tx = await db.TomoTransaction.findOne({toAccount: account.hash})
         if (!tx){
-            sendTomo(account.hash, coinbase, balanceOnChain.toString())
+            let currentBalance = null
+            try {
+                currentBalance = await web3.eth.getBalance(account.hash)
+            } catch (e) {
+                console.log('cannot get balance account %s. Will send Tomo in the next time', account.hash)
+            }
+            if (currentBalance === '0') {
+                sendTomo(account.hash, coinbase, balanceOnChain.toString())
+            }
         }
     })
 }
@@ -50,21 +57,24 @@ function sendTomo(toAccount, coinbase, value) {
             if (err) {
                 console.error(err)
             } else {
-                let ttx = new db.TomoTransaction({
-                    hash: hash,
-                    fromAccount: coinbase,
-                    toAccount: toAccount,
-                    value: balance.toString(),
-                    valueNumber: balance.dividedBy(10 ** 18).toNumber(),
-                    createdAt: new Date()
-                })
-                ttx.save()
-                console.log('send %s tomo to %s', balance.dividedBy(10 ** 18).toNumber(), toAccount)
+                try {
+                    let ttx = new db.TomoTransaction({
+                        hash: hash,
+                        fromAccount: coinbase,
+                        toAccount: toAccount,
+                        value: balance.toString(),
+                        valueNumber: balance.dividedBy(10 ** 18).toNumber(),
+                        createdAt: new Date()
+                    })
+                    ttx.save()
+                    console.log('send %s tomo to %s', balance.dividedBy(10 ** 18).toNumber(), toAccount)
+                } catch (e) {
+                    console.error(e)
+                }
             }
         })
     } catch (e) {
         console.error(e)
-        sendTomo(toAccount, value)
     }
 
 }
