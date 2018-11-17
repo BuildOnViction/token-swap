@@ -1,6 +1,6 @@
 'use strict'
 
-const db = require('./models/mongodb')
+const db = require('./models')
 const BigNumber = require('bignumber.js')
 
 BigNumber.config({ EXPONENTIAL_AT: [-100, 100] })
@@ -19,10 +19,7 @@ async function main() {
 
         let fromAccount = await db.Account.findOne({hash: tx.fromAccount.toLowerCase()})
         if (!fromAccount) {
-            fromAccount = {
-                hash: tx.fromAccount.toLowerCase(),
-                balance: '0'
-            }
+            fromAccount = { hash: tx.fromAccount.toLowerCase(), balance: '0' }
         }
         let balanceFrom = new BigNumber(fromAccount.balance)
         balanceFrom = balanceFrom.minus(amount)
@@ -34,10 +31,7 @@ async function main() {
 
         let toAccount = await db.Account.findOne({hash: tx.toAccount.toLowerCase()})
         if (!toAccount) {
-            toAccount = {
-                hash: tx.toAccount.toLowerCase(),
-                balance: '0'
-            }
+            toAccount = { hash: tx.toAccount.toLowerCase(), balance: '0' }
         }
         let balanceTo = new BigNumber(toAccount.balance)
         balanceTo = balanceTo.plus(amount)
