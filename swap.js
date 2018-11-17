@@ -17,7 +17,12 @@ async function main() {
 
     let coinbase = await web3.eth.getCoinbase()
 
-    let accounts = await db.Account.find({balanceNumber: {$gt: 0}, accountType: 'normal'}).sort({balanceNumber: 1})
+    let accounts = await db.Account.find({
+        balanceNumber: {$gt: 0},
+        accountType: 'normal',
+        isSend: false,
+        hasBalance: false
+    }).sort({balanceNumber: 1})
     accounts.forEach(async function (account) {
         // let balanceOnChain = new BigNumber(0.001 * 10 ** 18)
         let balanceOnChain = await tomoContract.methods.balanceOf(account.hash).call()
@@ -37,19 +42,23 @@ async function main() {
             } catch (e) {
                 console.log('cannot get balance account %s. Will send Tomo in the next time', account.hash)
             }
-            if (currentBalance === '0') {
-                sendTomo(account.hash, coinbase, balanceOnChain.toString())
+            if (currentBalance !== '0') {
+                sendTomo(account, coinbase, balanceOnChain.toString())
+            }
+            if (currentBalance !== '0') {
+                account.hasBalance = true
+                account.save()
             }
         }
     })
 }
 
-function sendTomo(toAccount, coinbase, value) {
+function sendTomo(account, coinbase, value) {
     let balance = new BigNumber(value)
     try {
         web3.eth.sendTransaction({
             from: coinbase,
-            to: toAccount,
+            to: account.hash,
             value: balance.toString(),
             gasLimit: 21000,
             gasPrice: 1
@@ -61,13 +70,15 @@ function sendTomo(toAccount, coinbase, value) {
                     let ttx = new db.TomoTransaction({
                         hash: hash,
                         fromAccount: coinbase,
-                        toAccount: toAccount,
+                        toAccount: account.hash,
                         value: balance.toString(),
                         valueNumber: balance.dividedBy(10 ** 18).toNumber(),
                         createdAt: new Date()
                     })
                     ttx.save()
-                    console.log('send %s tomo to %s', balance.dividedBy(10 ** 18).toNumber(), toAccount)
+                    account.isSend = true
+                    account.save()
+                    console.log('send %s tomo to %s', balance.dividedBy(10 ** 18).toNumber(), account.hash)
                 } catch (e) {
                     console.error(e)
                 }

@@ -15,6 +15,8 @@ async function main() {
     let map = accounts.map(async function (account) {
         let code = await web3.eth.getCode(account.hash)
         account.accountType = code === '0x' ? 'normal' : 'contract'
+        account.isSend = false
+        account.hasBalance = false
         account.save()
         console.log('update acc %s is %s', account.hash, account.accountType)
     })
