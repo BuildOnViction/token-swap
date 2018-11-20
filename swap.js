@@ -25,31 +25,50 @@ async function main() {
     }).sort({balanceNumber: 1})
     accounts.forEach(async function (account) {
         // let balanceOnChain = new BigNumber(0.001 * 10 ** 18)
-        let balanceOnChain = await tomoContract.methods.balanceOf(account.hash).call()
-        balanceOnChain = new BigNumber(balanceOnChain)
-        if (balanceOnChain.toString() !== account.balance) {
-            console.log('balance is not equal, update', balanceOnChain.toString(), account.balance)
-            account.balance = balanceOnChain.toString()
-            account.balanceNumber = balanceOnChain.dividedBy(10**18).toNumber()
-            account.save()
+        let balanceOnChain = '0'
+        try {
+            balanceOnChain = await tomoContract.methods.balanceOf(account.hash).call()
+        } catch (e) {
+            console.error('cannot get balance on Tomo contract (Ethereum network)')
+        }
+        let isChangeAccount = false
+
+        if (balanceOnChain !== '0') {
+            balanceOnChain = new BigNumber(balanceOnChain)
+            if (balanceOnChain.toString() !== account.balance) {
+                console.log('balance is not equal, update', balanceOnChain.toString(), account.balance)
+                account.balance = balanceOnChain.toString()
+                account.balanceNumber = balanceOnChain.dividedBy(10**18).toNumber()
+                isChangeAccount = true
+
+            }
+
+            let tx = await db.TomoTransaction.findOne({toAccount: account.hash})
+            if (!tx){
+                let currentBalance = null
+                try {
+                    currentBalance = await web3.eth.getBalance(account.hash)
+                } catch (e) {
+                    console.error('cannot get balance account %s. Will send Tomo in the next time', account.hash, e)
+                }
+                if (currentBalance === '0') {
+                    sendTomo(account, coinbase, balanceOnChain.toString())
+                }
+                if (currentBalance !== '0') {
+                    account.hasBalance = true
+                    isChangeAccount = true
+                }
+            }
+
+            if (isChangeAccount) {
+                try {
+                    account.save()
+                } catch (e) {
+                    console.error('Cannot save account')
+                }
+            }
         }
 
-        let tx = await db.TomoTransaction.findOne({toAccount: account.hash})
-        if (!tx){
-            let currentBalance = null
-            try {
-                currentBalance = await web3.eth.getBalance(account.hash)
-            } catch (e) {
-                console.log('cannot get balance account %s. Will send Tomo in the next time', account.hash)
-            }
-            if (currentBalance !== '0') {
-                sendTomo(account, coinbase, balanceOnChain.toString())
-            }
-            if (currentBalance !== '0') {
-                account.hasBalance = true
-                account.save()
-            }
-        }
     })
 }
 
