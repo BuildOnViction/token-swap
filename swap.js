@@ -31,7 +31,6 @@ async function main() {
         } catch (e) {
             console.error('cannot get balance on Tomo contract (Ethereum network)')
         }
-        let isChangeAccount = false
 
         if (balanceOnChain !== '0') {
             balanceOnChain = new BigNumber(balanceOnChain)
@@ -39,8 +38,6 @@ async function main() {
                 console.log('balance is not equal, update', balanceOnChain.toString(), account.balance)
                 account.balance = balanceOnChain.toString()
                 account.balanceNumber = balanceOnChain.dividedBy(10**18).toNumber()
-                isChangeAccount = true
-
             }
 
             let tx = await db.TomoTransaction.findOne({toAccount: account.hash})
@@ -54,19 +51,18 @@ async function main() {
                 if (currentBalance === '0') {
                     sendTomo(account, coinbase, balanceOnChain.toString())
                 }
-                if (currentBalance !== '0') {
+                if (currentBalance !== '0' && currentBalance !== null) {
                     account.hasBalance = true
-                    isChangeAccount = true
+                    try {
+                        account.save()
+                    } catch (e) {
+                        console.error('Cannot save account')
+                        console.error(e)
+                        process.exit(1)
+                    }
                 }
             }
 
-            if (isChangeAccount) {
-                try {
-                    account.save()
-                } catch (e) {
-                    console.error('Cannot save account')
-                }
-            }
         }
 
     })
@@ -80,10 +76,11 @@ function sendTomo(account, coinbase, value) {
             to: account.hash,
             value: balance.toString(),
             gasLimit: 21000,
-            gasPrice: 1
+            gasPrice: 5000
         }, function (err, hash) {
             if (err) {
                 console.error(err)
+                process.exit(1)
             } else {
                 try {
                     let ttx = new db.TomoTransaction({
@@ -100,11 +97,13 @@ function sendTomo(account, coinbase, value) {
                     console.log('send %s tomo to %s', balance.dividedBy(10 ** 18).toNumber(), account.hash)
                 } catch (e) {
                     console.error(e)
+                    process.exit(1)
                 }
             }
         })
     } catch (e) {
         console.error(e)
+        process.exit(1)
     }
 
 }
