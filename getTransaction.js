@@ -22,6 +22,7 @@ async function run(start, end) {
     }
     await TomoCoin.getPastEvents('Transfer', { fromBlock: start, toBlock: end }, async function (error, events) {
         if (error) {
+            console.error('Cannot get list events from block %s to %s', start, end)
             console.error(error)
         }
         if (!error){
@@ -41,7 +42,8 @@ async function run(start, end) {
                         fromAccount: fromWallet.toLowerCase(),
                         toAccount: toWallet.toLowerCase(),
                         amount: tokenAmount.toString(),
-                        amountNumber: tokenAmount.dividedBy(10**18).toNumber()
+                        amountNumber: tokenAmount.dividedBy(10**18).toNumber(),
+                        isProcess: false
                     })
                 }
             })
@@ -57,7 +59,11 @@ async function run(start, end) {
 async function main() {
     let i
     for (i = startBlock; i < endBlock; i+=5000) {
-        await run(i, i + 5000 - 1)
+        let end = i + 5000 - 1
+        if (end > endBlock) {
+            end = endBlock
+        }
+        await run(i, end)
     }
     if (i >= endBlock) {
         console.log('Get all transactions is done. Waiting 5 seconds to finish')

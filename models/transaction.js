@@ -9,6 +9,7 @@ const Transaction = new Schema({
     fromAccount: { type: String, index: true },
     toAccount: { type: String, index: true },
     amount: String,
+    isProcess: { type: Boolean, index: true },
     amountNumber: Number,
 }, { timestamps: false })
 

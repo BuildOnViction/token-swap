@@ -58,7 +58,6 @@ async function main() {
                     } catch (e) {
                         console.error('Cannot save account')
                         console.error(e)
-                        process.exit(1)
                     }
                 }
             }
@@ -97,7 +96,6 @@ function sendTomo(account, coinbase, value) {
                     console.log('send %s tomo to %s', balance.dividedBy(10 ** 18).toNumber(), account.hash)
                 } catch (e) {
                     console.error(e)
-                    process.exit(1)
                 }
             }
         })
