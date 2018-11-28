@@ -1,4 +1,4 @@
-const Web3 = require('web3')
+const { web3Eth, web3Tomo } = require('./web3')
 const config = require('config')
 const PrivateKeyProvider = require('truffle-privatekey-provider')
 const db = require('./models')
@@ -7,15 +7,9 @@ const BigNumber = require('bignumber.js')
 
 BigNumber.config({ EXPONENTIAL_AT: [-100, 100] })
 
-const web3 = new Web3(config.get('tomoProvider.http'))
-const provider = new PrivateKeyProvider(config.get('privateKey'), config.get('tomoProvider.http'))
-
-web3.eth.setProvider(provider)
 async function main() {
-    const ethWeb3 = await new Web3(new Web3.providers.HttpProvider(config.get('ethProvider.http')))
-    const tomoContract = await new ethWeb3.eth.Contract(TomoABI, config.get('tomoAddress'))
+    const tomoContract = await new web3Eth.eth.Contract(TomoABI, config.get('tomoAddress'))
 
-    let coinbase = await web3.eth.getCoinbase()
 
     let accounts = await db.Account.find({
         balanceNumber: {$gt: 0},
@@ -23,6 +17,7 @@ async function main() {
         isSend: false,
         hasBalance: false
     }).sort({balanceNumber: 1})
+
     accounts.forEach(async function (account) {
         // let balanceOnChain = new BigNumber(0.001 * 10 ** 18)
         let balanceOnChain = '0'
@@ -44,12 +39,16 @@ async function main() {
             if (!tx){
                 let currentBalance = null
                 try {
-                    currentBalance = await web3.eth.getBalance(account.hash)
+                    currentBalance = await web3Tomo.eth.getBalance(account.hash)
                 } catch (e) {
                     console.error('cannot get balance account %s. Will send Tomo in the next time', account.hash, e)
                 }
                 if (currentBalance === '0') {
-                    sendTomo(account, coinbase, balanceOnChain.toString())
+                    tAccounts.push(
+                        account: account,
+                        balance: balanceOnChain.toString()
+                    )
+                    // sendTomo(account, coinbase, balanceOnChain.toString())
                 }
                 if (currentBalance !== '0' && currentBalance !== null) {
                     account.hasBalance = true
@@ -65,12 +64,18 @@ async function main() {
         }
 
     })
+
+
+    await sendTomo(tAccounts)
+
 }
 
-function sendTomo(account, coinbase, value) {
+async function sendTomo(accounts) {
+    let coinbase = await web3Tomo.eth.getCoinbase()
     let balance = new BigNumber(value)
+    let nonce = await web3Tomo.eth.getTransactionCount(coinbase)
     try {
-        web3.eth.sendTransaction({
+        web3Tomo.eth.sendTransaction({
             from: coinbase,
             to: account.hash,
             value: balance.toString(),

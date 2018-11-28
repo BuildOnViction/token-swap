@@ -51,8 +51,8 @@ async function main() {
     }
 
 
-    console.log('Finish process')
-    process.exit(1)
+    console.log('Finished process')
+    process.exit(0)
 }
 
 main()
