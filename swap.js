@@ -1,80 +1,92 @@
 const { web3Eth, web3Tomo } = require('./web3')
 const config = require('config')
-const PrivateKeyProvider = require('truffle-privatekey-provider')
 const db = require('./models')
 const TomoABI = require('./files/tomocoin')
 const BigNumber = require('bignumber.js')
+const events = require('events')
+
+// fix warning max listener
+events.EventEmitter.defaultMaxListeners = 1000
+process.setMaxListeners(1000)
 
 let sleep = (time) => new Promise((resolve) => setTimeout(resolve, time))
 BigNumber.config({ EXPONENTIAL_AT: [-100, 100] })
 
-async function main() {
-    const tomoContract = await new web3Eth.eth.Contract(TomoABI, config.get('tomoAddress'))
-
-
-    let accounts = await db.Account.find({
+async function getAccounts() {
+    return db.Account.find({
         balanceNumber: {$gt: 0},
         accountType: 'normal',
         isSend: false,
         hasBalance: false
-    }).sort({balanceNumber: 1})
+    }).sort({balanceNumber: 1}).limit(100)
+}
 
-    let tAccounts = []
-    let map = accounts.map(async function (account, index) {
-        // let balanceOnChain = new BigNumber(0.001 * 10 ** 18)
-        console.log('process', index, account.hash)
-        let balanceOnChain = '0'
-        try {
-            balanceOnChain = await tomoContract.methods.balanceOf(account.hash).call()
-        } catch (e) {
-            console.error('cannot get balance on Tomo contract (Ethereum network)')
-        }
+async function main() {
+    const tomoContract = await new web3Eth.eth.Contract(TomoABI, config.get('tomoAddress'))
 
-        if (balanceOnChain !== '0') {
-            balanceOnChain = new BigNumber(balanceOnChain)
-            if (balanceOnChain.toString() !== account.balance) {
-                console.log('balance is not equal, update', balanceOnChain.toString(), account.balance)
-                account.balance = balanceOnChain.toString()
-                account.balanceNumber = balanceOnChain.dividedBy(10**18).toNumber()
+    let accounts = await getAccounts()
+    while (accounts.length > 0) {
+        let tAccounts = []
+        let map = accounts.map(async function (account, index) {
+            // let balanceOnChain = new BigNumber(0.001 * 10 ** 18)
+            console.log('process', index, account.hash)
+            let balanceOnChain = '0'
+            try {
+                balanceOnChain = await tomoContract.methods.balanceOf(account.hash).call()
+            } catch (e) {
+                console.error('cannot get balance on Tomo contract (Ethereum network)')
             }
 
-            let tx = await db.TomoTransaction.findOne({toAccount: account.hash})
-            if (!tx){
-                let currentBalance = null
-                try {
-                    currentBalance = await web3Tomo.eth.getBalance(account.hash)
-                } catch (e) {
-                    console.error('cannot get balance account %s. Will send Tomo in the next time', account.hash, e)
+            if (balanceOnChain !== '0') {
+                balanceOnChain = new BigNumber(balanceOnChain)
+                if (balanceOnChain.toString() !== account.balance) {
+                    console.log('Update account %s with new balance', account.hash, balanceOnChain.toString())
+                    account.balance = balanceOnChain.toString()
+                    account.balanceNumber = balanceOnChain.dividedBy(10**18).toNumber()
                 }
-                if (currentBalance === '0') {
-                    tAccounts.push({
-                        hash: account.hash,
-                        balance: balanceOnChain.toString(),
-                        account: account
-                    })
-                }
-                if (currentBalance !== '0' && currentBalance !== null) {
-                    account.hasBalance = true
+
+                let tx = await db.TomoTransaction.findOne({toAccount: account.hash})
+                if (!tx){
+                    let currentBalance = null
                     try {
-                        account.save()
+                        currentBalance = await web3Tomo.eth.getBalance(account.hash)
                     } catch (e) {
-                        console.error('Cannot save account')
-                        console.error(e)
+                        console.error('cannot get balance account %s. Will send Tomo in the next time', account.hash, e)
+                    }
+                    if (currentBalance === '0') {
+                        tAccounts.push({
+                            hash: account.hash,
+                            balance: balanceOnChain.toString(),
+                            account: account
+                        })
+                    }
+                    if (currentBalance !== '0' && currentBalance !== null) {
+                        account.hasBalance = true
+                        try {
+                            account.save()
+                        } catch (e) {
+                            console.error('Cannot save account')
+                            console.error(e)
+                        }
                     }
                 }
+
             }
+        })
 
-        }
-    })
+        await Promise.all(map)
 
-    await Promise.all(map)
+        await sendTomo(tAccounts)
+        console.log('Send tomo to %s account, Sleep 10 seconds', tAccounts.length)
+        await sleep(10000)
 
-    await sendTomo(tAccounts)
+        accounts = await getAccounts()
+    }
 
 }
 
 const send = function(obj) {
-    let p = new Promise(resolve, reject => {
+    let p = new Promise((resolve, reject) => {
         web3Tomo.eth.sendTransaction({
             nonce: obj.nonce,
             from: obj.from,
@@ -85,6 +97,7 @@ const send = function(obj) {
         }, function (err, hash) {
             if (err) {
                 console.error('Send error', obj.to)
+                console.error(err)
                 return reject()
             } else {
                 try {
@@ -100,7 +113,7 @@ const send = function(obj) {
                     ttx.save()
                     obj.account.isSend = true
                     obj.account.save()
-                    console.log('Done', obj.to)
+                    console.log('Done', obj.to, obj.value, hash)
                 } catch (e) {
                     console.error('Save db error', obj.to)
                 }
@@ -127,24 +140,11 @@ async function sendTomo(accounts) {
             account: a.account
         }
     })
-    let objBulk = []
-    let objChunk = []
-    for (let i in obj) {
-        if (objChunk.length === 100) {
-            objBulk.push(objChunk)
-            objChunk = []
-        }
-        objChunk.push(obj[i])
-    }
 
-    for (let i in objBulk) {
-        let chunk = objBulk[i]
-        for (let j in chunk) {
-            let obj = chunk[j]
-            console.log('Start send %s tomo to %s', obj.value, obj.to)
-            await send(obj)
-        }
-        await sleep(10000)
+    for (let i in obj) {
+        let item = obj[i]
+        console.log('Start send %s tomo to %s', item.value, item.to)
+        await send(item)
     }
 }
 
