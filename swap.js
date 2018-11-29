@@ -23,6 +23,7 @@ async function getAccounts() {
 }
 
 async function main() {
+    console.log('Start process at', new Date())
     let coinbase = await web3Tomo.eth.getCoinbase()
     nonce = await web3Tomo.eth.getTransactionCount(coinbase)
     const tomoContract = await new web3Eth.eth.Contract(TomoABI, config.get('tomoAddress'))
@@ -73,22 +74,28 @@ async function main() {
                     }
                 }
 
+            } else {
+                account.balance = 0
+                account.balanceNumber = 0
+                account.save()
             }
         })
 
         await Promise.all(map)
 
         await sendTomo(coinbase, tAccounts)
-        console.log('Send tomo to %s account, Sleep 10 seconds', tAccounts.length)
+        console.log('Send tomo to %s accounts, Sleep 5 seconds', tAccounts.length)
         await sleep(5000)
 
         accounts = await getAccounts()
     }
 
+    console.log('Finish process at', new Date())
+    process.exit(0)
 }
 
 const send = function(obj) {
-    let p = new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
         web3Tomo.eth.sendTransaction({
             nonce: obj.nonce,
             from: obj.from,
@@ -99,7 +106,6 @@ const send = function(obj) {
         }, function (err, hash) {
             if (err) {
                 console.error('Send error', obj.to)
-                console.error('Nonce', obj.nonce)
                 console.error(String(err))
                 return reject()
             } else {
@@ -124,7 +130,6 @@ const send = function(obj) {
             }
         })
     })
-    return p
 }
 
 
