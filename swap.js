@@ -10,6 +10,7 @@ events.EventEmitter.defaultMaxListeners = 1000
 process.setMaxListeners(1000)
 
 let sleep = (time) => new Promise((resolve) => setTimeout(resolve, time))
+var nonce = 0
 BigNumber.config({ EXPONENTIAL_AT: [-100, 100] })
 
 async function getAccounts() {
@@ -22,6 +23,8 @@ async function getAccounts() {
 }
 
 async function main() {
+    let coinbase = await web3Tomo.eth.getCoinbase()
+    nonce = await web3Tomo.eth.getTransactionCount(coinbase)
     const tomoContract = await new web3Eth.eth.Contract(TomoABI, config.get('tomoAddress'))
 
     let accounts = await getAccounts()
@@ -29,7 +32,6 @@ async function main() {
         let tAccounts = []
         let map = accounts.map(async function (account, index) {
             // let balanceOnChain = new BigNumber(0.001 * 10 ** 18)
-            console.log('process', index, account.hash)
             let balanceOnChain = '0'
             try {
                 balanceOnChain = await tomoContract.methods.balanceOf(account.hash).call()
@@ -76,9 +78,9 @@ async function main() {
 
         await Promise.all(map)
 
-        await sendTomo(tAccounts)
+        await sendTomo(coinbase, tAccounts)
         console.log('Send tomo to %s account, Sleep 10 seconds', tAccounts.length)
-        await sleep(10000)
+        await sleep(5000)
 
         accounts = await getAccounts()
     }
@@ -97,7 +99,8 @@ const send = function(obj) {
         }, function (err, hash) {
             if (err) {
                 console.error('Send error', obj.to)
-                console.error(err)
+                console.error('Nonce', obj.nonce)
+                console.error(String(err))
                 return reject()
             } else {
                 try {
@@ -113,7 +116,7 @@ const send = function(obj) {
                     ttx.save()
                     obj.account.isSend = true
                     obj.account.save()
-                    console.log('Done', obj.to, obj.value, hash)
+                    console.log('Done', obj.to, obj.value, hash, 'nonce', obj.nonce)
                 } catch (e) {
                     console.error('Save db error', obj.to)
                 }
@@ -125,13 +128,11 @@ const send = function(obj) {
 }
 
 
-async function sendTomo(accounts) {
-    let coinbase = await web3Tomo.eth.getCoinbase()
-    let nonce = await web3Tomo.eth.getTransactionCount(coinbase)
-    let obj = accounts.map(a => {
-        nonce = parseInt(nonce) + 1
-        return {
-            nonce: nonce,
+async function sendTomo(coinbase, accounts) {
+    for (let i in accounts) {
+        let a = accounts[i]
+        let item = {
+            nonce: parseInt(nonce),
             from: coinbase,
             to: a.hash,
             value: a.balance,
@@ -139,12 +140,13 @@ async function sendTomo(accounts) {
             gasPrice: 5000,
             account: a.account
         }
-    })
 
-    for (let i in obj) {
-        let item = obj[i]
         console.log('Start send %s tomo to %s', item.value, item.to)
-        await send(item)
+        try {
+            await send(item)
+            nonce = parseInt(nonce) + 1
+        } catch (e) { }
+
     }
 }
 
