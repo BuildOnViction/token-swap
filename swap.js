@@ -22,6 +22,30 @@ async function getAccounts() {
     }).sort({balanceNumber: 1}).limit(100)
 }
 
+async function getErc20Balance(address) {
+    try {
+        return tomoContract.methods.balanceOf(address).call()
+    } catch (e) {
+        console.error('cannot get balance on Tomo contract (Ethereum network)', address)
+        console.error(String(e))
+        console.log('Sleep 1 second and re-getErc20Balance until done')
+        await sleep(1000)
+        return getErc20Balance(address)
+    }
+}
+
+async function getTomoBalance(address) {
+    try {
+        return web3Tomo.eth.getBalance(address)
+    } catch (e) {
+        console.error('cannot get balance account %s. Will send Tomo in the next time', account.hash)
+        console.error(String(e))
+        console.log('Sleep 1 second and re-getTomoBalance until done')
+        await sleep(1000)
+        return getTomoBalance(address)
+    }
+}
+
 async function main() {
     let coinbase = await web3Tomo.eth.getCoinbase()
     nonce = await web3Tomo.eth.getTransactionCount(coinbase)
@@ -32,12 +56,8 @@ async function main() {
         let tAccounts = []
         let map = accounts.map(async function (account, index) {
             // let balanceOnChain = new BigNumber(0.001 * 10 ** 18)
-            let balanceOnChain = '0'
-            try {
-                balanceOnChain = await tomoContract.methods.balanceOf(account.hash).call()
-            } catch (e) {
-                console.error('cannot get balance on Tomo contract (Ethereum network)')
-            }
+            // must be done before move to next step
+            let balanceOnChain = await getErc20Balance(account.hash)
 
             if (balanceOnChain !== '0') {
                 balanceOnChain = new BigNumber(balanceOnChain)
@@ -49,12 +69,8 @@ async function main() {
 
                 let tx = await db.TomoTransaction.findOne({toAccount: account.hash})
                 if (!tx){
-                    let currentBalance = null
-                    try {
-                        currentBalance = await web3Tomo.eth.getBalance(account.hash)
-                    } catch (e) {
-                        console.error('cannot get balance account %s. Will send Tomo in the next time', account.hash, e)
-                    }
+                    // must be done before move to next step
+                    let currentBalance = await getTomoBalance(account.hash)
                     if (currentBalance === '0') {
                         tAccounts.push({
                             hash: account.hash,
@@ -101,7 +117,10 @@ const send = function(obj) {
                 console.error('Send error', obj.to)
                 console.error('Nonce', obj.nonce)
                 console.error(String(err))
-                return reject()
+                console.error('Sleep 1 second and resend until done')
+                sleep(1000).then(() => {
+                    return resolve(send(obj))
+                })
             } else {
                 try {
                     let balance = new BigNumber(obj.value)
@@ -142,10 +161,9 @@ async function sendTomo(coinbase, accounts) {
         }
 
         console.log('Start send %s tomo to %s', item.value, item.to)
-        try {
-            await send(item)
-            nonce = parseInt(nonce) + 1
-        } catch (e) { }
+        // must be done before move to next step
+        await send(item)
+        nonce = parseInt(nonce) + 1
 
     }
 }
