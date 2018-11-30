@@ -113,7 +113,7 @@ async function main() {
 }
 
 const send = function(obj) {
-    return () => new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
         web3Tomo.eth.sendTransaction({
             nonce: obj.nonce,
             from: obj.from,
@@ -127,7 +127,7 @@ const send = function(obj) {
                 console.error(String(err))
                 console.error('Sleep 2 seconds and resend until done')
                 return sleep(2000).then(() => {
-                    return reject(err)
+                    return resolve(send(obj))
                 })
             } else {
                 try {
@@ -153,11 +153,6 @@ const send = function(obj) {
     })
 }
 
-// retry until done
-const backoff = function (fn) {
-    return fn().catch(err => backoff(fn))
-}
-
 async function sendTomo (coinbase, accounts) {
     for (let i in accounts) {
         let a = accounts[i]
@@ -173,7 +168,7 @@ async function sendTomo (coinbase, accounts) {
 
         console.log('Start send %s tomo to %s', item.value, item.to)
         // must be done before move to next step
-        await backoff(send(item))
+        await send(item)
         nonce = parseInt(nonce) + 1
 
     }
