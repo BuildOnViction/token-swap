@@ -1,4 +1,4 @@
-const { web3Eth, web3Tomo } = require('./web3')
+const { web3EthRpc, web3Tomo } = require('./web3')
 const config = require('config')
 const db = require('./models')
 const TomoABI = require('./files/tomocoin')
@@ -11,7 +11,8 @@ process.setMaxListeners(1000)
 
 let sleep = (time) => new Promise((resolve) => setTimeout(resolve, time))
 var nonce = 0
-const tomoContract = new web3Eth.eth.Contract(TomoABI, config.get('tomoAddress'))
+var coinbase = ''
+var tomoContract = new web3EthRpc.eth.Contract(TomoABI, config.get('tomoAddress'))
 BigNumber.config({ EXPONENTIAL_AT: [-100, 100] })
 
 async function getAccounts() {
@@ -23,34 +24,35 @@ async function getAccounts() {
     }).sort({balanceNumber: 1}).limit(100)
 }
 
-async function getErc20Balance(address) {
-    try {
-        return tomoContract.methods.balanceOf(address).call()
-    } catch (e) {
+function getErc20Balance(address) {
+    return tomoContract.methods.balanceOf(address).call().catch(e => {
         console.error('cannot get balance on Tomo contract (Ethereum network)', address)
-        console.error(String(e))
-        console.log('Sleep 1 second and re-getErc20Balance until done')
-        await sleep(1000)
-        return getErc20Balance(address)
-    }
+        console.log('Sleep 2 seconds and re-getErc20Balance until done')
+        return sleep(2000).then(() => {
+            return getErc20Balance(address)
+        })
+    })
 }
 
-async function getTomoBalance(address) {
-    try {
-        return web3Tomo.eth.getBalance(address)
-    } catch (e) {
-        console.error('cannot get balance account %s. Will send Tomo in the next time', account.hash)
-        console.error(String(e))
-        console.log('Sleep 1 second and re-getTomoBalance until done')
-        await sleep(1000)
-        return getTomoBalance(address)
-    }
+function getTomoBalance(address) {
+    return web3Tomo.eth.getBalance(address).catch(e => {
+        console.error('cannot get TOMO balance account', address)
+        console.log('Sleep 2 second and re-getTomoBalance until done')
+        return sleep(2000).then(() => {
+            return getTomoBalance(address)
+        })
+    })
 }
 
 async function main() {
     console.log('Start process at', new Date())
-    let coinbase = await web3Tomo.eth.getCoinbase()
-    nonce = await web3Tomo.eth.getTransactionCount(coinbase)
+    try {
+        coinbase = await web3Tomo.eth.getCoinbase()
+        nonce = await web3Tomo.eth.getTransactionCount(coinbase)
+    } catch (e) {
+        console.log('Cannot start by error', String(e))
+        process.exit(1)
+    }
 
     let accounts = await getAccounts()
     while (accounts.length > 0) {
@@ -111,7 +113,7 @@ async function main() {
 }
 
 const send = function(obj) {
-    return new Promise((resolve, reject) => {
+    return () => new Promise((resolve, reject) => {
         web3Tomo.eth.sendTransaction({
             nonce: obj.nonce,
             from: obj.from,
@@ -121,11 +123,11 @@ const send = function(obj) {
             gasPrice: obj.gasPrice
         }, function (err, hash) {
             if (err) {
-                console.error('Send error', obj.to)
+                console.error('Send error 1', obj.to, 'nonce', obj.nonce)
                 console.error(String(err))
-                console.error('Sleep 1 second and resend until done')
-                sleep(1000).then(() => {
-                    return resolve(send(obj))
+                console.error('Sleep 2 seconds and resend until done')
+                return sleep(2000).then(() => {
+                    return reject(err)
                 })
             } else {
                 try {
@@ -151,8 +153,12 @@ const send = function(obj) {
     })
 }
 
+// retry until done
+const backoff = function (fn) {
+    return fn().catch(err => backoff(fn))
+}
 
-async function sendTomo(coinbase, accounts) {
+async function sendTomo (coinbase, accounts) {
     for (let i in accounts) {
         let a = accounts[i]
         let item = {
@@ -167,7 +173,7 @@ async function sendTomo(coinbase, accounts) {
 
         console.log('Start send %s tomo to %s', item.value, item.to)
         // must be done before move to next step
-        await send(item)
+        await backoff(send(item))
         nonce = parseInt(nonce) + 1
 
     }

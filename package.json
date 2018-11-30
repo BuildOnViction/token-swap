@@ -12,7 +12,7 @@
     "bignumber.js": "^8.0.1",
     "config": "^2.0.1",
     "mongoose": "^5.3.11",
-    "truffle-privatekey-provider": "^0.1.0",
+    "truffle-privatekey-provider": "^1.0.0",
     "web3": "^1.0.0-beta.36"
   }
 }
