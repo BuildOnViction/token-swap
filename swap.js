@@ -11,6 +11,7 @@ process.setMaxListeners(1000)
 
 let sleep = (time) => new Promise((resolve) => setTimeout(resolve, time))
 var nonce = 0
+const tomoContract = new web3Eth.eth.Contract(TomoABI, config.get('tomoAddress'))
 BigNumber.config({ EXPONENTIAL_AT: [-100, 100] })
 
 async function getAccounts() {
@@ -49,7 +50,6 @@ async function getTomoBalance(address) {
 async function main() {
     let coinbase = await web3Tomo.eth.getCoinbase()
     nonce = await web3Tomo.eth.getTransactionCount(coinbase)
-    const tomoContract = await new web3Eth.eth.Contract(TomoABI, config.get('tomoAddress'))
 
     let accounts = await getAccounts()
     while (accounts.length > 0) {
