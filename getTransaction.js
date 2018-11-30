@@ -66,7 +66,7 @@ async function main() {
     if (i >= endBlock) {
         console.log('Get all transactions is done. Waiting 5 seconds to finish')
         await sleep(5000)
-        process.exit(1)
+        process.exit(0)
     }
 }
 
