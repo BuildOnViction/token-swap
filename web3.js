@@ -1,7 +1,7 @@
 'use strict'
 
 const Web3 = require('web3')
-const PrivateKeyProvider = require('truffle-privatekey-provider') 
+const PrivateKeyProvider = require('truffle-privatekey-provider')
 const config = require('config')
 
 const providerEth = new Web3.providers.WebsocketProvider(config.get('ethProvider.ws'))

@@ -9,7 +9,7 @@ const Account = new Schema({
     balanceNumber: Number,
     accountType: { type: String, index: true },
     isSend: { type: Boolean, index: true, default: false },
-    hasBalance: { type: Boolean, index: true, default: false },
+    hasBalance: { type: Boolean, index: true, default: false }
 }, { timestamps: false })
 
 module.exports = mongoose.model('Account', Account)

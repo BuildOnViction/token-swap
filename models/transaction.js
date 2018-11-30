@@ -10,7 +10,7 @@ const Transaction = new Schema({
     toAccount: { type: String, index: true },
     amount: String,
     isProcess: { type: Boolean, index: true },
-    amountNumber: Number,
+    amountNumber: Number
 }, { timestamps: false })
 
 module.exports = mongoose.model('Transaction', Transaction)

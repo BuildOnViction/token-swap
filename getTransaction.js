@@ -12,7 +12,7 @@ let endBlock = config.get('endBlock')
 let sleep = (time) => new Promise((resolve) => setTimeout(resolve, time))
 
 BigNumber.config({ EXPONENTIAL_AT: [-100, 100] })
-async function run(start, end) {
+async function run (start, end) {
     if (end > endBlock) {
         end = endBlock
     }
@@ -34,7 +34,7 @@ async function run(start, end) {
                     fromAccount: fromWallet.toLowerCase(),
                     toAccount: toWallet.toLowerCase(),
                     amount: tokenAmount.toString(),
-                    amountNumber: tokenAmount.dividedBy(10**18).toNumber(),
+                    amountNumber: tokenAmount.dividedBy(10 ** 18).toNumber(),
                     isProcess: false
                 }
             }
@@ -49,14 +49,13 @@ async function run(start, end) {
         console.log('Error when crawl', start, end)
         console.log('Sleep 2 seconds, Re-crawl', start, end)
         web3Eth.reconnect()
-        return await run(start, end)
+        return run(start, end)
     })
-
 }
 
-async function main() {
+async function main () {
     let i
-    for (i = startBlock; i < endBlock; i+=5000) {
+    for (i = startBlock; i < endBlock; i += 5000) {
         let end = i + 5000 - 1
         if (end > endBlock) {
             end = endBlock

@@ -7,7 +7,7 @@ const config = require('config')
 const db = {}
 
 mongoose.Promise = global.Promise
-mongoose.connect(config.get('db.uri'), {useCreateIndex: true, useNewUrlParser: true })
+mongoose.connect(config.get('db.uri'), { useCreateIndex: true, useNewUrlParser: true })
 
 // import all file in this dir, except index.js
 fs.readdirSync(__dirname)

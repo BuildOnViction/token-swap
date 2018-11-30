@@ -15,16 +15,16 @@ var coinbase = ''
 var tomoContract = new web3EthRpc.eth.Contract(TomoABI, config.get('tomoAddress'))
 BigNumber.config({ EXPONENTIAL_AT: [-100, 100] })
 
-async function getAccounts() {
+async function getAccounts () {
     return db.Account.find({
-        balanceNumber: {$gt: 0},
+        balanceNumber: { $gt: 0 },
         accountType: 'normal',
         isSend: false,
         hasBalance: false
-    }).sort({balanceNumber: 1}).limit(100)
+    }).sort({ balanceNumber: 1 }).limit(100)
 }
 
-function getErc20Balance(address) {
+function getErc20Balance (address) {
     return tomoContract.methods.balanceOf(address).call().catch(e => {
         console.error('cannot get balance on Tomo contract (Ethereum network)', address)
         console.log('Sleep 2 seconds and re-getErc20Balance until done')
@@ -34,7 +34,7 @@ function getErc20Balance(address) {
     })
 }
 
-function getTomoBalance(address) {
+function getTomoBalance (address) {
     return web3Tomo.eth.getBalance(address).catch(e => {
         console.error('cannot get TOMO balance account', address)
         console.log('Sleep 2 second and re-getTomoBalance until done')
@@ -44,7 +44,7 @@ function getTomoBalance(address) {
     })
 }
 
-async function main() {
+async function main () {
     console.log('Start process at', new Date())
     try {
         coinbase = await web3Tomo.eth.getCoinbase()
@@ -67,11 +67,11 @@ async function main() {
                 if (balanceOnChain.toString() !== account.balance) {
                     console.log('Update account %s with new balance', account.hash, balanceOnChain.toString())
                     account.balance = balanceOnChain.toString()
-                    account.balanceNumber = balanceOnChain.dividedBy(10**18).toNumber()
+                    account.balanceNumber = balanceOnChain.dividedBy(10 ** 18).toNumber()
                 }
 
-                let tx = await db.TomoTransaction.findOne({toAccount: account.hash})
-                if (!tx){
+                let tx = await db.TomoTransaction.findOne({ toAccount: account.hash })
+                if (!tx) {
                     // must be done before move to next step
                     let currentBalance = await getTomoBalance(account.hash)
                     if (currentBalance === '0') {
@@ -91,7 +91,6 @@ async function main() {
                         }
                     }
                 }
-
             } else {
                 account.balance = 0
                 account.balanceNumber = 0
@@ -112,7 +111,7 @@ async function main() {
     process.exit(0)
 }
 
-const send = function(obj) {
+const send = function (obj) {
     return new Promise((resolve, reject) => {
         web3Tomo.eth.sendTransaction({
             nonce: obj.nonce,
@@ -170,7 +169,6 @@ async function sendTomo (coinbase, accounts) {
         // must be done before move to next step
         await send(item)
         nonce = parseInt(nonce) + 1
-
     }
 }
 

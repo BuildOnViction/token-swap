@@ -3,14 +3,13 @@
 const db = require('./models')
 const { web3Eth } = require('./web3')
 const BigNumber = require('bignumber.js')
-const config = require('config')
 
 BigNumber.config({ EXPONENTIAL_AT: [-100, 100] })
-async function getAccounts() {
+async function getAccounts () {
     // Only make sure account with balance greate than 0
-    return db.Account.find({balanceNumber: {$gt: 0}, accountType: { $exists: false }})
+    return db.Account.find({ balanceNumber: { $gt: 0 }, accountType: { $exists: false } })
 }
-async function main() {
+async function main () {
     let accounts = await getAccounts()
 
     while (accounts.length > 0) {
@@ -27,7 +26,6 @@ async function main() {
                 web3Eth.reconnect()
                 console.log(e)
             }
-
         })
         await Promise.all(map)
         accounts = await getAccounts()
