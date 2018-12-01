@@ -148,7 +148,7 @@ const send = function (obj) {
                 }
                 return resolve()
             }
-        })
+        }).catch(e => { })
     })
 }
 

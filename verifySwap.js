@@ -54,7 +54,7 @@ async function main () {
             let balanceOnEth = await getErc20Balance(account.hash)
             let currentBalance = await getTomoBalance(account.hash)
             let b = String(balanceOnEth) === String(currentBalance)
-            console.log('ERC20', String(balanceOnEth), 'TOMO', String(currentBalance), b)
+            console.log('ERC20', String(balanceOnEth), 'TOMO', String(currentBalance), String(b).toUpperCase())
             if (!b) {
                 bad.push({
                     address: account.hash,
@@ -71,9 +71,13 @@ async function main () {
         accounts = await getAccounts(skip, limit)
     }
 
-    console.log(bad)
+    console.log('---------------------------------------')
+
+    bad.forEach(it => {
+        console.log('address', it.address, 'balanceOnEth', String(it.balanceOnEth), 'currentBalance', String(it.currentBalance))
+    })
     console.log('Result: total %s, bad %s', total, bad.length)
-    console.log('Finish process at', new Date())
+    console.log('Finished process at', new Date())
     process.exit(0)
 }
 
