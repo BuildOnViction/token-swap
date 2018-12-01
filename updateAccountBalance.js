@@ -39,8 +39,8 @@ async function main () {
             }
             let balanceTo = new BigNumber(toAccount.balance)
             balanceTo = balanceTo.plus(amount)
-            await db.Account.updateOne({ hash: tx.toAccount }, {
-                hash: tx.toAccount,
+            await db.Account.updateOne({ hash: tx.toAccount.toLowerCase() }, {
+                hash: tx.toAccount.toLowerCase(),
                 balance: balanceTo.toString(),
                 balanceNumber: balanceTo.dividedBy(10 ** 18).toNumber()
             }, { upsert: true })

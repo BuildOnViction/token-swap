@@ -12,11 +12,13 @@ process.setMaxListeners(1000)
 let sleep = (time) => new Promise((resolve) => setTimeout(resolve, time))
 var nonce = 0
 var coinbase = ''
+const ignoreList = config.get('ignoreList').map(il => il.toLowerCase())
 var tomoContract = new web3EthRpc.eth.Contract(TomoABI, config.get('tomoAddress'))
 BigNumber.config({ EXPONENTIAL_AT: [-100, 100] })
 
 async function getAccounts () {
     return db.Account.find({
+        hash: { $nin: ignoreList },
         balanceNumber: { $gt: 0 },
         accountType: 'normal',
         isSend: false,

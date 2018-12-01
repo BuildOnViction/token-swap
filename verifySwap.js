@@ -14,9 +14,7 @@ var tomoContract = new web3EthRpc.eth.Contract(TomoABI, config.get('tomoAddress'
 BigNumber.config({ EXPONENTIAL_AT: [-100, 100] })
 
 async function getAccounts (skip, limit) {
-    return db.Account.find({
-        accountType: 'normal'
-    }).sort({ balanceNumber: 1 }).limit(limit).skip(skip)
+    return db.Account.find({}).sort({ balanceNumber: 1 }).limit(limit).skip(skip)
 }
 
 function getErc20Balance (address) {
@@ -47,7 +45,7 @@ async function main () {
     let skip = 0
     let total = 0
     let accounts = await getAccounts(skip, limit)
-    let bad = []
+    let ne = []
     while (accounts.length > 0) {
         let map = accounts.map(async function (account, index) {
             total++
@@ -56,8 +54,9 @@ async function main () {
             let b = String(balanceOnEth) === String(currentBalance)
             console.log('ERC20', String(balanceOnEth), 'TOMO', String(currentBalance), String(b).toUpperCase())
             if (!b) {
-                bad.push({
+                ne.push({
                     address: account.hash,
+                    accountType: account.accountType,
                     balanceOnEth: balanceOnEth,
                     currentBalance: currentBalance
                 })
@@ -73,10 +72,14 @@ async function main () {
 
     console.log('---------------------------------------')
 
-    bad.forEach(it => {
-        console.log('address', it.address, 'balanceOnEth', String(it.balanceOnEth), 'currentBalance', String(it.currentBalance))
+    let contract = 0
+    ne.forEach(it => {
+        if (it.accountType === 'contract') {
+            contract++
+        }
+        console.log(it.address, it.accountType, String(it.balanceOnEth), String(it.currentBalance))
     })
-    console.log('Result: total %s, bad %s', total, bad.length)
+    console.log('Result: total %s, neq %s eq %s contract %s', total, ne.length, total - ne.length, contract)
     console.log('Finished process at', new Date())
     process.exit(0)
 }
